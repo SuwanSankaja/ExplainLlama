@@ -2,7 +2,7 @@ const vscode = require('vscode');
 const axios = require('axios');
 
 // Manually update this URL each time the ngrok URL changes
-const CODELLAMA_API_URL = "https://e0f0-34-74-171-190.ngrok-free.app"; // 🔹 Replace with your actual ngrok URL
+const CODELLAMA_API_URL = "https://9ef7-34-126-145-224.ngrok-free.app"; // 🔹 Replace with your actual ngrok URL
 
 /**
  * Sends the selected Java code to the FastAPI server for fixing.
