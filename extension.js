@@ -50,7 +50,51 @@ async function fixJavaBug() {
             { enableScripts: true } // Enable JavaScript in WebView
         );
 
-        panel.webview.html = `<html>
+        panel.webview.html = `<!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>ExplainLlama Results</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    background-color: #1e1e1e;
+                    color: #d4d4d4;
+                    padding: 20px;
+                }
+                h2 {
+                    color: #569cd6;
+                }
+                pre {
+                    background-color: #252526;
+                    padding: 10px;
+                    border-radius: 5px;
+                    overflow-x: auto;
+                }
+                p {
+                    background-color: #252526;
+                    padding: 10px;
+                    border-radius: 5px;
+                }
+                button {
+                    background-color: #0e639c;
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    text-align: center;
+                    text-decoration: none;
+                    display: inline-block;
+                    font-size: 16px;
+                    margin: 10px 0;
+                    cursor: pointer;
+                    border-radius: 5px;
+                }
+                button:hover {
+                    background-color: #1177bb;
+                }
+            </style>
+        </head>
         <body>
             <h2>Fixed Code:</h2>
             <pre>${fixedCode}</pre>
