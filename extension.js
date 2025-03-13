@@ -2,7 +2,7 @@ const vscode = require('vscode');
 const axios = require('axios');
 
 // Manually update this URL each time the ngrok URL changes
-const CODELLAMA_API_URL = "https://9ef7-34-126-145-224.ngrok-free.app"; // 🔹 Replace with your actual ngrok URL
+const CODELLAMA_API_URL = "https://5e39-34-124-141-87.ngrok-free.app"; // 🔹 Replace with your actual ngrok URL
 
 /**
  * Sends the selected Java code to the FastAPI server for fixing.
@@ -42,12 +42,12 @@ async function fixJavaBug() {
             ? explanationResponse.data.explanation
             : "Explanation not available.";
 
-        // Step 3: Display results in a WebView panel
+        // Step 3: Display results in a WebView panel with a "Fix" button
         const panel = vscode.window.createWebviewPanel(
             'explainllama',
             'ExplainLlama Results',
             vscode.ViewColumn.Two,
-            { enableScripts: true }
+            { enableScripts: true } // Enable JavaScript in WebView
         );
 
         panel.webview.html = `<html>
@@ -56,8 +56,29 @@ async function fixJavaBug() {
             <pre>${fixedCode}</pre>
             <h2>Explanation:</h2>
             <p>${explanation}</p>
+            <button id="fix-button">Fix</button>
+
+            <script>
+                const vscode = acquireVsCodeApi();
+                document.getElementById('fix-button').addEventListener('click', () => {
+                    vscode.postMessage({ command: 'applyFix', fixedCode: \`${fixedCode}\` });
+                });
+            </script>
         </body>
         </html>`;
+
+        // Handle messages from the WebView
+        panel.webview.onDidReceiveMessage(
+            message => {
+                if (message.command === 'applyFix') {
+                    editor.edit(editBuilder => {
+                        editBuilder.replace(editor.selection, message.fixedCode);
+                    });
+                }
+            },
+            undefined,
+            vscode.window.activeTextEditor
+        );
 
     } catch (error) {
         vscode.window.showErrorMessage("Error fixing Java code: " + error.message);
