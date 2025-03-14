@@ -2,7 +2,43 @@ const vscode = require('vscode');
 const axios = require('axios');
 
 // Manually update this URL each time the ngrok URL changes
-const CODELLAMA_API_URL = "https://5e39-34-124-141-87.ngrok-free.app"; // 🔹 Replace with your actual ngrok URL
+const CODELLAMA_API_URL = "https://f666-34-125-211-194.ngrok-free.app"; // 🔹 Replace with your actual ngrok URL
+
+/**
+ * Finds the differences between two arrays of lines and returns the indices of changed lines.
+ */
+function findChangedLines(buggyLines, fixedLines) {
+    const changedLines = [];
+    const maxLength = Math.max(buggyLines.length, fixedLines.length);
+
+    for (let i = 0; i < maxLength; i++) {
+        const buggyLine = buggyLines[i] || '';
+        const fixedLine = fixedLines[i] || '';
+
+        // Normalize lines by trimming whitespace
+        const normalizedBuggyLine = buggyLine.trim();
+        const normalizedFixedLine = fixedLine.trim();
+
+        // Compare normalized lines
+        if (normalizedBuggyLine !== normalizedFixedLine) {
+            changedLines.push(i);
+        }
+    }
+
+    return changedLines;
+}
+
+/**
+ * Highlights the specified lines in the code with the given color.
+ */
+function highlightLines(lines, lineIndices, color) {
+    return lines.map((line, index) => {
+        if (lineIndices.includes(index)) {
+            return `<span style="background-color: ${color};">${line}</span>`;
+        }
+        return line;
+    }).join('\n');
+}
 
 /**
  * Sends the selected Java code to the FastAPI server for fixing.
@@ -42,7 +78,18 @@ async function fixJavaBug() {
             ? explanationResponse.data.explanation
             : "Explanation not available.";
 
-        // Step 3: Display results in a WebView panel with a "Fix" button
+        // Step 3: Split the code into lines
+        const buggyLines = buggyCode.split('\n');
+        const fixedLines = fixedCode.split('\n');
+
+        // Step 4: Find the changed lines
+        const changedLines = findChangedLines(buggyLines, fixedLines);
+
+        // Step 5: Highlight the changed lines
+        const highlightedBuggyCode = highlightLines(buggyLines, changedLines, 'red'); // Red for buggy code
+        const highlightedFixedCode = highlightLines(fixedLines, changedLines, 'green'); // Green for fixed code
+
+        // Step 6: Display results in a WebView panel with a "Fix" button
         const panel = vscode.window.createWebviewPanel(
             'explainllama',
             'ExplainLlama Results',
@@ -96,8 +143,10 @@ async function fixJavaBug() {
             </style>
         </head>
         <body>
+            <h2>Buggy Code:</h2>
+            <pre>${highlightedBuggyCode}</pre>
             <h2>Fixed Code:</h2>
-            <pre>${fixedCode}</pre>
+            <pre>${highlightedFixedCode}</pre>
             <h2>Explanation:</h2>
             <p>${explanation}</p>
             <button id="fix-button">Fix</button>
