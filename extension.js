@@ -60,7 +60,7 @@ async function fixJavaBug() {
     const explainApiUrl = `${CODELLAMA_API_URL}/explain_fix`;
 
     try {
-        vscode.window.showInformationMessage("Fixing Java code...");
+        vscode.window.showInformationMessage("ExplainLlama running...");
 
         // Step 1: Request the fixed code from CodeLlama
         const response = await axios.post(fixApiUrl, { buggy_code: buggyCode });
@@ -149,7 +149,7 @@ async function fixJavaBug() {
             <pre>${highlightedFixedCode}</pre>
             <h2>Explanation:</h2>
             <p>${explanation}</p>
-            <button id="fix-button">Fix</button>
+            <button id="fix-button">Apply Fix</button>
 
             <script>
                 const vscode = acquireVsCodeApi();
