@@ -1,8 +1,8 @@
 const vscode = require('vscode');
 const axios = require('axios');
 
-// Manually update this URL each time the ngrok URL changes
-const CODELLAMA_API_URL = "https://84d7-34-139-144-234.ngrok-free.app"; // 🔹 Replace with your actual ngrok URL
+// 🔁 Your droplet's public IP
+const CODELLAMA_API_URL = "http://192.241.141.164:3000";
 
 /**
  * Finds the differences between two arrays of lines and returns the indices of changed lines.
@@ -15,12 +15,7 @@ function findChangedLines(buggyLines, fixedLines) {
         const buggyLine = buggyLines[i] || '';
         const fixedLine = fixedLines[i] || '';
 
-        // Normalize lines by trimming whitespace
-        const normalizedBuggyLine = buggyLine.trim();
-        const normalizedFixedLine = fixedLine.trim();
-
-        // Compare normalized lines
-        if (normalizedBuggyLine !== normalizedFixedLine) {
+        if (buggyLine.trim() !== fixedLine.trim()) {
             changedLines.push(i);
         }
     }
@@ -29,7 +24,7 @@ function findChangedLines(buggyLines, fixedLines) {
 }
 
 /**
- * Highlights the specified lines in the code with the given color.
+ * Highlights lines with a background color.
  */
 function highlightLines(lines, lineIndices, color) {
     return lines.map((line, index) => {
@@ -41,7 +36,7 @@ function highlightLines(lines, lineIndices, color) {
 }
 
 /**
- * Sends the selected Java code to the FastAPI server for fixing.
+ * Sends code to the queue and waits for result from /get-result
  */
 async function fixJavaBug() {
     const editor = vscode.window.activeTextEditor;
@@ -56,183 +51,132 @@ async function fixJavaBug() {
         return;
     }
 
-    const fixApiUrl = `${CODELLAMA_API_URL}/fix_code`;
-    const explainApiUrl = `${CODELLAMA_API_URL}/explain_fix`;
+    const jobId = Date.now().toString();  // Simple unique ID
 
     try {
-        vscode.window.showInformationMessage("ExplainLlama running...");
+        vscode.window.showInformationMessage("Queuing job to ExplainLlama...");
 
-        // Step 1: Request the fixed code from CodeLlama
-        const response = await axios.post(fixApiUrl, { buggy_code: buggyCode });
-        if (response.status !== 200) {
-            throw new Error("Failed to fetch fixed code.");
-        }
-        const fixedCode = response.data.fixed_code;
+        // Step 1: Send job to Droplet API
+        await axios.post(`${CODELLAMA_API_URL}/queue-job`, {
+            job_id: jobId,
+            code: buggyCode,
+            language: "java"
+        });
 
-        // Normalize code for comparison
-        const buggyNormalized = buggyCode.trim();
-        const fixedNormalized = fixedCode.trim();
+        // Step 2: Poll for result
+        const waitForResult = async () => {
+            let attempts = 0;
+            const maxAttempts = 20;
 
-        let explanation = "";
-        let changedLines = [];
-        let highlightedBuggyCode = "";
-        let highlightedFixedCode = "";
+            while (attempts < maxAttempts) {
+                const response = await axios.get(`${CODELLAMA_API_URL}/get-result/${jobId}`);
+                const data = response.data;
 
-        if (buggyNormalized === fixedNormalized) {
-            // Step 2: Still get the explanation
-            const explanationResponse = await axios.post(explainApiUrl, {
-                buggy_code: buggyCode,
-                fixed_code: fixedCode
-            });
-            const generatedExplanation = explanationResponse.status === 200
-                ? explanationResponse.data.explanation
-                : "Explanation not available.";
-
-            const infoLine = `<span style="color:yellow; font-weight: bold;">There is no Bug in the code.</span>`;
-            explanation = `${infoLine}<br>${generatedExplanation}`;
-
-            highlightedBuggyCode = buggyCode;
-            highlightedFixedCode = fixedCode;
-
-        } else {
-            // Step 2: Get explanation
-            const explanationResponse = await axios.post(explainApiUrl, {
-                buggy_code: buggyCode,
-                fixed_code: fixedCode
-            });
-            const generatedExplanation = explanationResponse.status === 200
-                ? explanationResponse.data.explanation
-                : "Explanation not available.";
-
-            const infoLine = `<span style="color:red; font-weight: bold;">A Bug is present in the code.</span>`;
-            explanation = `${infoLine}<br>${generatedExplanation}`;
-
-            const buggyLines = buggyCode.split('\n');
-            const fixedLines = fixedCode.split('\n');
-
-            changedLines = findChangedLines(buggyLines, fixedLines);
-            highlightedBuggyCode = highlightLines(buggyLines, changedLines, 'red');
-            highlightedFixedCode = highlightLines(fixedLines, changedLines, 'green');
-        }
-
-        // Step 6: Display results in a WebView panel with both Apply and Edit & Apply options
-        const panel = vscode.window.createWebviewPanel(
-            'explainllama',
-            'ExplainLlama Results',
-            vscode.ViewColumn.Two,
-            { enableScripts: true }
-        );
-
-        panel.webview.html = `<!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>ExplainLlama Results</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background-color: #1e1e1e;
-                    color: #d4d4d4;
-                    padding: 20px;
+                if (data && data.status === "done") {
+                    return data;
                 }
-                h2 {
-                    color: #569cd6;
-                }
-                pre, textarea {
-                    background-color: #252526;
-                    padding: 10px;
-                    border-radius: 5px;
-                    overflow-x: auto;
-                    width: 100%;
-                    box-sizing: border-box;
-                    font-family: monospace;
-                    font-size: 14px;
-                    color: #d4d4d4;
-                }
-                p {
-                    background-color: #252526;
-                    padding: 10px;
-                    border-radius: 5px;
-                }
-                button {
-                    background-color: #0e639c;
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    text-align: center;
-                    text-decoration: none;
-                    display: inline-block;
-                    font-size: 16px;
-                    margin: 10px 10px 10px 0;
-                    cursor: pointer;
-                    border-radius: 5px;
-                }
-                button:hover {
-                    background-color: #1177bb;
-                }
-                #edit-area {
-                    display: none;
-                    margin-top: 10px;
-                }
-            </style>
-        </head>
-        <body>
-            <h2>Buggy Code:</h2>
-            <pre>${highlightedBuggyCode}</pre>
-            <h2>Fixed Code:</h2>
-            <pre>${highlightedFixedCode}</pre>
-            <h2>Explanation:</h2>
-            <p>${explanation}</p>
 
-            <button id="fix-button">Apply Fix</button>
-            <button id="edit-button">Edit & Fix</button>
+                await new Promise(res => setTimeout(res, 3000));
+                attempts++;
+            }
 
-            <div id="edit-area">
-                <h2>Edit Fixed Code:</h2>
-                <textarea id="edited-code" rows="15">${fixedCode}</textarea><br>
-                <button id="apply-edited-button">Apply Edited Fix</button>
-            </div>
+            throw new Error("Timeout: Result not ready.");
+        };
 
-            <script>
-                const vscode = acquireVsCodeApi();
+        const { fixed_code, explanation } = await waitForResult();
 
-                document.getElementById('fix-button').addEventListener('click', () => {
-                    vscode.postMessage({ command: 'applyFix', fixedCode: \`${fixedCode}\` });
-                });
+        vscode.window.showInformationMessage("✅ Fix is ready!");
+        showWebView(buggyCode, fixed_code, explanation, editor);
 
-                document.getElementById('edit-button').addEventListener('click', () => {
-                    document.getElementById('edit-area').style.display = 'block';
-                });
-
-                document.getElementById('apply-edited-button').addEventListener('click', () => {
-                    const editedCode = document.getElementById('edited-code').value;
-                    vscode.postMessage({ command: 'applyFix', fixedCode: editedCode });
-                });
-            </script>
-        </body>
-        </html>`;
-
-        // Handle messages from the WebView
-        panel.webview.onDidReceiveMessage(
-            message => {
-                if (message.command === 'applyFix') {
-                    editor.edit(editBuilder => {
-                        editBuilder.replace(editor.selection, message.fixedCode);
-                    });
-                }
-            },
-            undefined,
-            vscode.window.activeTextEditor
-        );
-
-    } catch (error) {
-        vscode.window.showErrorMessage("Error fixing Java code: " + error.message);
+    } catch (err) {
+        vscode.window.showErrorMessage("❌ Error: " + err.message);
     }
 }
 
 /**
- * This method is called when the extension is activated.
+ * Displays the result in a WebView
+ */
+function showWebView(buggyCode, fixedCode, explanation, editor) {
+    const changedLines = findChangedLines(buggyCode.split('\n'), fixedCode.split('\n'));
+    const highlightedBuggyCode = highlightLines(buggyCode.split('\n'), changedLines, 'red');
+    const highlightedFixedCode = highlightLines(fixedCode.split('\n'), changedLines, 'green');
+
+    const panel = vscode.window.createWebviewPanel(
+        'explainllama',
+        'ExplainLlama Results',
+        vscode.ViewColumn.Two,
+        { enableScripts: true }
+    );
+
+    panel.webview.html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {
+                font-family: Arial;
+                background-color: #1e1e1e;
+                color: #d4d4d4;
+                padding: 20px;
+            }
+            pre {
+                background: #2d2d2d;
+                padding: 10px;
+                border-radius: 5px;
+                overflow-x: auto;
+            }
+            button {
+                background-color: #0e639c;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                font-size: 16px;
+                margin-top: 10px;
+                border-radius: 5px;
+                cursor: pointer;
+            }
+            button:hover {
+                background-color: #1177bb;
+            }
+        </style>
+    </head>
+    <body>
+        <h2>Buggy Code:</h2>
+        <pre>${highlightedBuggyCode}</pre>
+
+        <h2>Fixed Code:</h2>
+        <pre>${highlightedFixedCode}</pre>
+
+        <h2>Explanation:</h2>
+        <p>${explanation}</p>
+
+        <button id="applyFix">Apply Fix</button>
+
+        <script>
+            const vscode = acquireVsCodeApi();
+            document.getElementById('applyFix').addEventListener('click', () => {
+                vscode.postMessage({ command: 'applyFix', fixedCode: \`${fixedCode}\` });
+            });
+        </script>
+    </body>
+    </html>
+    `;
+
+    panel.webview.onDidReceiveMessage(
+        message => {
+            if (message.command === 'applyFix') {
+                editor.edit(editBuilder => {
+                    editBuilder.replace(editor.selection, message.fixedCode);
+                });
+            }
+        },
+        undefined,
+        vscode.window.activeTextEditor
+    );
+}
+
+/**
+ * Activates the extension
  */
 function activate(context) {
     let disposable = vscode.commands.registerCommand('explainllama.fixJava', fixJavaBug);
@@ -240,8 +184,11 @@ function activate(context) {
 }
 
 /**
- * This method is called when the extension is deactivated.
+ * Deactivates the extension
  */
 function deactivate() {}
 
-module.exports = { activate, deactivate };
+module.exports = {
+    activate,
+    deactivate
+};
