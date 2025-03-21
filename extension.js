@@ -2,7 +2,7 @@ const vscode = require('vscode');
 const axios = require('axios');
 
 // Manually update this URL each time the ngrok URL changes
-const CODELLAMA_API_URL = "https://84d7-34-139-144-234.ngrok-free.app";// 🔹 Replace with your actual ngrok URL
+const CODELLAMA_API_URL = "https://84d7-34-139-144-234.ngrok-free.app"; // 🔹 Replace with your actual ngrok URL
 
 /**
  * Finds the differences between two arrays of lines and returns the indices of changed lines.
@@ -69,32 +69,60 @@ async function fixJavaBug() {
         }
         const fixedCode = response.data.fixed_code;
 
-        // Step 2: Request an explanation from CodeLlama
-        const explanationResponse = await axios.post(explainApiUrl, {
-            buggy_code: buggyCode,
-            fixed_code: fixedCode
-        });
-        const explanation = explanationResponse.status === 200
-            ? explanationResponse.data.explanation
-            : "Explanation not available.";
+        // Normalize code for comparison
+        const buggyNormalized = buggyCode.trim();
+        const fixedNormalized = fixedCode.trim();
 
-        // Step 3: Split the code into lines
-        const buggyLines = buggyCode.split('\n');
-        const fixedLines = fixedCode.split('\n');
+        let explanation = "";
+        let changedLines = [];
+        let highlightedBuggyCode = "";
+        let highlightedFixedCode = "";
 
-        // Step 4: Find the changed lines
-        const changedLines = findChangedLines(buggyLines, fixedLines);
+        if (buggyNormalized === fixedNormalized) {
+            // Step 2: Request explanation anyway
+            const explanationResponse = await axios.post(explainApiUrl, {
+                buggy_code: buggyCode,
+                fixed_code: fixedCode
+            });
+            const generatedExplanation = explanationResponse.status === 200
+                ? explanationResponse.data.explanation
+                : "Explanation not available.";
+        
+            const infoLine = `<span style="color:yellow; font-weight: bold;">No Bug in the given code.</span>`;
+            explanation = `${infoLine}<br>${generatedExplanation}`;
+        
+            // Don't highlight code at all
+            highlightedBuggyCode = buggyCode;
+            highlightedFixedCode = fixedCode;
+        }
+        else {
+            // Step 2: Request an explanation from CodeLlama
+            const explanationResponse = await axios.post(explainApiUrl, {
+                buggy_code: buggyCode,
+                fixed_code: fixedCode
+            });
+            explanation = explanationResponse.status === 200
+                ? explanationResponse.data.explanation
+                : "Explanation not available.";
 
-        // Step 5: Highlight the changed lines
-        const highlightedBuggyCode = highlightLines(buggyLines, changedLines, 'red'); // Red for buggy code
-        const highlightedFixedCode = highlightLines(fixedLines, changedLines, 'green'); // Green for fixed code
+            // Step 3: Split the code into lines
+            const buggyLines = buggyCode.split('\n');
+            const fixedLines = fixedCode.split('\n');
 
-        // Step 6: Display results in a WebView panel with a "Fix" button
+            // Step 4: Find the changed lines
+            changedLines = findChangedLines(buggyLines, fixedLines);
+
+            // Step 5: Highlight the changed lines
+            highlightedBuggyCode = highlightLines(buggyLines, changedLines, 'red'); // Red for buggy code
+            highlightedFixedCode = highlightLines(fixedLines, changedLines, 'green'); // Green for fixed code
+        }
+
+        // Step 6: Display results in a WebView panel with both Apply and Edit & Apply options
         const panel = vscode.window.createWebviewPanel(
             'explainllama',
             'ExplainLlama Results',
             vscode.ViewColumn.Two,
-            { enableScripts: true } // Enable JavaScript in WebView
+            { enableScripts: true }
         );
 
         panel.webview.html = `<!DOCTYPE html>
@@ -160,7 +188,7 @@ async function fixJavaBug() {
             <p>${explanation}</p>
 
             <button id="fix-button">Apply Fix</button>
-            <button id="edit-button">Edit & Apply Fix</button>
+            <button id="edit-button">Edit & Fix</button>
 
             <div id="edit-area">
                 <h2>Edit Fixed Code:</h2>
@@ -186,7 +214,6 @@ async function fixJavaBug() {
             </script>
         </body>
         </html>`;
-
 
         // Handle messages from the WebView
         panel.webview.onDidReceiveMessage(
