@@ -79,7 +79,7 @@ async function fixJavaBug() {
         let highlightedFixedCode = "";
 
         if (buggyNormalized === fixedNormalized) {
-            // Step 2: Request explanation anyway
+            // Step 2: Still get the explanation
             const explanationResponse = await axios.post(explainApiUrl, {
                 buggy_code: buggyCode,
                 fixed_code: fixedCode
@@ -87,34 +87,32 @@ async function fixJavaBug() {
             const generatedExplanation = explanationResponse.status === 200
                 ? explanationResponse.data.explanation
                 : "Explanation not available.";
-        
-            const infoLine = `<span style="color:yellow; font-weight: bold;">No Bug in the given code.</span>`;
+
+            const infoLine = `<span style="color:yellow; font-weight: bold;">There is no Bug in the code.</span>`;
             explanation = `${infoLine}<br>${generatedExplanation}`;
-        
-            // Don't highlight code at all
+
             highlightedBuggyCode = buggyCode;
             highlightedFixedCode = fixedCode;
-        }
-        else {
-            // Step 2: Request an explanation from CodeLlama
+
+        } else {
+            // Step 2: Get explanation
             const explanationResponse = await axios.post(explainApiUrl, {
                 buggy_code: buggyCode,
                 fixed_code: fixedCode
             });
-            explanation = explanationResponse.status === 200
+            const generatedExplanation = explanationResponse.status === 200
                 ? explanationResponse.data.explanation
                 : "Explanation not available.";
 
-            // Step 3: Split the code into lines
+            const infoLine = `<span style="color:red; font-weight: bold;">A Bug is present in the code.</span>`;
+            explanation = `${infoLine}<br>${generatedExplanation}`;
+
             const buggyLines = buggyCode.split('\n');
             const fixedLines = fixedCode.split('\n');
 
-            // Step 4: Find the changed lines
             changedLines = findChangedLines(buggyLines, fixedLines);
-
-            // Step 5: Highlight the changed lines
-            highlightedBuggyCode = highlightLines(buggyLines, changedLines, 'red'); // Red for buggy code
-            highlightedFixedCode = highlightLines(fixedLines, changedLines, 'green'); // Green for fixed code
+            highlightedBuggyCode = highlightLines(buggyLines, changedLines, 'red');
+            highlightedFixedCode = highlightLines(fixedLines, changedLines, 'green');
         }
 
         // Step 6: Display results in a WebView panel with both Apply and Edit & Apply options
