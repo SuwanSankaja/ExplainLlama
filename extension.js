@@ -2,7 +2,7 @@ const vscode = require('vscode');
 const axios = require('axios');
 
 // Manually update this URL each time the ngrok URL changes
-const CODELLAMA_API_URL = "https://f666-34-125-211-194.ngrok-free.app"; // 🔹 Replace with your actual ngrok URL
+const CODELLAMA_API_URL = "https://84d7-34-139-144-234.ngrok-free.app";// 🔹 Replace with your actual ngrok URL
 
 /**
  * Finds the differences between two arrays of lines and returns the indices of changed lines.
@@ -113,11 +113,16 @@ async function fixJavaBug() {
                 h2 {
                     color: #569cd6;
                 }
-                pre {
+                pre, textarea {
                     background-color: #252526;
                     padding: 10px;
                     border-radius: 5px;
                     overflow-x: auto;
+                    width: 100%;
+                    box-sizing: border-box;
+                    font-family: monospace;
+                    font-size: 14px;
+                    color: #d4d4d4;
                 }
                 p {
                     background-color: #252526;
@@ -133,12 +138,16 @@ async function fixJavaBug() {
                     text-decoration: none;
                     display: inline-block;
                     font-size: 16px;
-                    margin: 10px 0;
+                    margin: 10px 10px 10px 0;
                     cursor: pointer;
                     border-radius: 5px;
                 }
                 button:hover {
                     background-color: #1177bb;
+                }
+                #edit-area {
+                    display: none;
+                    margin-top: 10px;
                 }
             </style>
         </head>
@@ -149,16 +158,35 @@ async function fixJavaBug() {
             <pre>${highlightedFixedCode}</pre>
             <h2>Explanation:</h2>
             <p>${explanation}</p>
+
             <button id="fix-button">Apply Fix</button>
+            <button id="edit-button">Edit & Apply Fix</button>
+
+            <div id="edit-area">
+                <h2>Edit Fixed Code:</h2>
+                <textarea id="edited-code" rows="15">${fixedCode}</textarea><br>
+                <button id="apply-edited-button">Apply Edited Fix</button>
+            </div>
 
             <script>
                 const vscode = acquireVsCodeApi();
+
                 document.getElementById('fix-button').addEventListener('click', () => {
                     vscode.postMessage({ command: 'applyFix', fixedCode: \`${fixedCode}\` });
+                });
+
+                document.getElementById('edit-button').addEventListener('click', () => {
+                    document.getElementById('edit-area').style.display = 'block';
+                });
+
+                document.getElementById('apply-edited-button').addEventListener('click', () => {
+                    const editedCode = document.getElementById('edited-code').value;
+                    vscode.postMessage({ command: 'applyFix', fixedCode: editedCode });
                 });
             </script>
         </body>
         </html>`;
+
 
         // Handle messages from the WebView
         panel.webview.onDidReceiveMessage(
