@@ -1,6 +1,6 @@
 {
-  "name": "explainllama",
-  "displayName": "ExplainLlama",
+  "name": "fixplain",
+  "displayName": "FixPlain",
   "description": "Fixes and explains Java bugs using AI",
   "version": "0.0.1",
   "engines": {
@@ -14,8 +14,8 @@
   "contributes": {
   "commands": [
     {
-      "command": "explainllama.fixJava",
-      "title": "Fix Java Bug with ExplainLlama"
+      "command": "fixplain.fixJava",
+      "title": "Fix Java Bug with FixPlain"
     }
   ]
 }

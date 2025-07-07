@@ -2,7 +2,8 @@ const vscode = require('vscode');
 const axios = require('axios');
 
 // Manually update this URL each time the ngrok URL changes
-const CODELLAMA_API_URL = "https://84d7-34-139-144-234.ngrok-free.app"; // 🔹 Replace with your actual ngrok URL
+
+const CODELLAMA_API_URL = "https://7f6e-35-234-62-147.ngrok-free.app"; // 🔹 Replace with your actual ngrok URL
 
 /**
  * Finds the differences between two arrays of lines and returns the indices of changed lines.
@@ -40,6 +41,9 @@ function highlightLines(lines, lineIndices, color) {
     }).join('\n');
 }
 
+
+
+
 /**
  * Sends the selected Java code to the FastAPI server for fixing.
  */
@@ -60,7 +64,7 @@ async function fixJavaBug() {
     const explainApiUrl = `${CODELLAMA_API_URL}/explain_fix`;
 
     try {
-        vscode.window.showInformationMessage("ExplainLlama running...");
+        vscode.window.showInformationMessage("Fixplain running...");
 
         // Step 1: Request the fixed code from CodeLlama
         const response = await axios.post(fixApiUrl, { buggy_code: buggyCode });
@@ -117,8 +121,8 @@ async function fixJavaBug() {
 
         // Step 6: Display results in a WebView panel with both Apply and Edit & Apply options
         const panel = vscode.window.createWebviewPanel(
-            'explainllama',
-            'ExplainLlama Results',
+            'fixplain',
+            'Fixplain Results',
             vscode.ViewColumn.Two,
             { enableScripts: true }
         );
@@ -128,7 +132,7 @@ async function fixJavaBug() {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>ExplainLlama Results</title>
+            <title>Fixplain Results</title>
             <style>
                 body {
                     font-family: Arial, sans-serif;
@@ -176,6 +180,7 @@ async function fixJavaBug() {
                     margin-top: 10px;
                 }
             </style>
+
         </head>
         <body>
             <h2>Buggy Code:</h2>
@@ -235,7 +240,7 @@ async function fixJavaBug() {
  * This method is called when the extension is activated.
  */
 function activate(context) {
-    let disposable = vscode.commands.registerCommand('explainllama.fixJava', fixJavaBug);
+    let disposable = vscode.commands.registerCommand('fixplain.fixJava', fixJavaBug);
     context.subscriptions.push(disposable);
 }
 
