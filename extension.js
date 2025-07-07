@@ -1,10 +1,32 @@
 const vscode = require('vscode');
+const path = require('path');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
-// 🔹 Add your Gemini API key here
-const API_KEY = "AIzaSyBxqjdKKKLSJGUmhgaXj69luQSJucBAbr4";
-const genAI = new GoogleGenerativeAI(API_KEY);
+const API_ENDPOINT = process.env.API_ENDPOINT;
+console.log("API Endpoint:", API_ENDPOINT);
+if (!API_ENDPOINT) {
+    throw new Error('Endpoint not found in environment variables. Please Activate the Server');
+}
+const genAI = new GoogleGenerativeAI(API_ENDPOINT);
 
+/**
+ * Removes markdown code block syntax from code string
+ * @param {string} code The code that might contain markdown code blocks
+ * @returns {string} The cleaned code without markdown syntax
+ */
+function removeCodeBlockSyntax(code) {
+    if (!code) return '';
+    
+    // Remove opening code block (```java, ```JavaScript, ``` etc.)
+    let cleanedCode = code.replace(/^```[a-zA-Z]*\n?/gm, '');
+    
+    // Remove closing code block (```)
+    cleanedCode = cleanedCode.replace(/\n?```$/gm, '');
+    
+    // Trim any extra whitespace
+    return cleanedCode.trim();
+}
 
 /**
  * Escapes special HTML characters to prevent rendering issues in the webview.
@@ -83,7 +105,7 @@ async function fixJavaBug() {
     }
 
     try {
-        vscode.window.showInformationMessage("Fixplain running with Gemini...");
+        vscode.window.showInformationMessage("Fixplain is analyzing your Java code...");
 
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         const prompt = `
@@ -96,10 +118,12 @@ async function fixJavaBug() {
 
             **Instructions:**
             Your response must be a single JSON object containing two keys:
-            1. "fixed_code": A string containing the corrected, complete Java code.
+            1. "fixed_code": A string containing the corrected, complete Java code (without any markdown code block syntax like \`\`\`java or \`\`\`).
             2. "explanation": A concise, one-paragraph explanation (under 100 words) of the bug and the fix.
 
             If there is no bug, return the original code in "fixed_code" and explain why the code is correct.
+            
+            IMPORTANT: Do not wrap the fixed_code value in markdown code blocks. Return plain Java code only.
         `;
 
         const result = await model.generateContent(prompt);
@@ -110,7 +134,9 @@ async function fixJavaBug() {
         try {
             const jsonString = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
             const parsedJson = JSON.parse(jsonString);
-            fixedCode = parsedJson.fixed_code;
+            
+            // Clean the fixed code to remove any markdown syntax
+            fixedCode = removeCodeBlockSyntax(parsedJson.fixed_code);
             generatedExplanation = parsedJson.explanation;
         } catch (e) {
             vscode.window.showErrorMessage("Error parsing the AI's response. Please try again.");
@@ -144,8 +170,10 @@ async function fixJavaBug() {
 
         panel.webview.onDidReceiveMessage(message => {
             if (message.command === 'applyFix') {
+                // Also clean the code when applying the fix, just in case
+                const cleanedFixedCode = removeCodeBlockSyntax(message.fixedCode);
                 editor.edit(editBuilder => {
-                    editBuilder.replace(editor.selection, message.fixedCode);
+                    editBuilder.replace(editor.selection, cleanedFixedCode);
                 });
             }
         });
