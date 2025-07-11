@@ -3,7 +3,7 @@ const axios = require('axios');
 
 // Manually update this URL each time the ngrok URL changes
 
-const CODELLAMA_API_URL = "https://33659cd43d92.ngrok-free.app"; // 🔹 Replace with your actual ngrok URL
+const CODELLAMA_API_URL = "https://217902a4d840.ngrok-free.app"; // 🔹 Replace with your actual ngrok URL
 
 /**
  * Finds the differences between two arrays of lines and returns the indices of changed lines.
@@ -502,20 +502,26 @@ async function fixJavaBug() {
             <script>
                 const vscode = acquireVsCodeApi();
 
-                // Add loading states for better UX
-                function setLoading(button, isLoading) {
+                // Updated setLoading function to handle both loading and applied states
+                function setLoading(button, isLoading, isApplied = false) {
                     if (isLoading) {
                         button.classList.add('loading');
                         button.textContent = '⏳ Applying...';
+                    } else if (isApplied) {
+                        button.classList.remove('loading');
+                        button.textContent = '✅ Applied';
+                        button.style.background = 'linear-gradient(135deg, #238636, #2ea043)';
                     } else {
                         button.classList.remove('loading');
+                        button.textContent = '🚀 Apply Fix'; // Reset to original text
                     }
                 }
 
+                // Updated event listeners
                 document.getElementById('fix-button').addEventListener('click', function() {
                     setLoading(this, true);
                     vscode.postMessage({ command: 'applyFix', fixedCode: \`${fixedCode}\` });
-                    setTimeout(() => setLoading(this, false), 1000);
+                    setTimeout(() => setLoading(this, false, true), 1000); // 1 second, show "Applied"
                 });
 
                 document.getElementById('edit-button').addEventListener('click', function() {
@@ -528,7 +534,7 @@ async function fixJavaBug() {
                     const editedCode = document.getElementById('edited-code').value;
                     setLoading(this, true);
                     vscode.postMessage({ command: 'applyFix', fixedCode: editedCode });
-                    setTimeout(() => setLoading(this, false), 1000);
+                    setTimeout(() => setLoading(this, false, true), 1000); // 1 second, show "Applied"
                 });
 
                 // Add smooth scrolling behavior
